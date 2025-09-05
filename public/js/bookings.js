@@ -7,23 +7,35 @@ form.addEventListener('submit', async (e) => {
     e.preventDefault();
     msgBox.textContent = '';
 
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Saving...";
+
     const data = Object.fromEntries(new FormData(form));
 
-    const res = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json','X-CSRF-TOKEN':token},
-        body: JSON.stringify(data)
-    });
+    try{
+        const res = await fetch('/api/bookings', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json','X-CSRF-TOKEN':token},
+            body: JSON.stringify(data)
+        });
 
-    const json = await res.json();
-    if (res.ok) {
-        msgBox.className = 'success';
-        msgBox.textContent = 'Booking created!';
-        form.reset();
-        fetchBookings();
-    } else {
+        const json = await res.json();
+        if (res.ok) {
+            msgBox.className = 'success';
+            msgBox.textContent = 'Booking created!';
+            form.reset();
+            fetchBookings();
+        } else {
+            msgBox.className = 'error';
+            msgBox.textContent = json.error ?? 'Error creating booking';
+        }
+    } catch (err) {
         msgBox.className = 'error';
-        msgBox.textContent = json.error ?? 'Error creating booking';
+        msgBox.textContent = 'Network error, try again.';
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Create Booking";
     }
 });
 
@@ -39,17 +51,17 @@ async function fetchBookings() {
     const res = await fetch(url);
     const bookings = await res.json();
 
-    tableBody.innerHTML = '';
+    let rows = '';
     bookings.forEach(b => {
-        const row = `<tr>
+        rows += `<tr>
             <td>${escapeHtml(b.title)}</td>
             <td>${escapeHtml(b.user.name)}</td>
             <td>${escapeHtml(b.client.name)}</td>
             <td>${formatDate(b.start_time)}</td>
             <td>${formatDate(b.end_time)}</td>
         </tr>`;
-        tableBody.innerHTML += row;
     });
+    tableBody.innerHTML += rows;
 }
 
 function formatDate(dateStr) {

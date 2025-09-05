@@ -19,7 +19,7 @@ class Booking extends Model
         return $this->belongsTo(client::class);
     }
 
-    // Check Overlap bookings
+    // detect Overlap bookings
     public static function hasOverlap($userId, $start, $end, $ignored=null){
         return self::where('user_id', $userId)->
             where(function($query) use($start, $end){

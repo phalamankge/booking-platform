@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Booking;
+use Carbon\carbon;
 
 class BookingController extends Controller
 {
@@ -17,7 +18,7 @@ class BookingController extends Controller
             'client_id'  => 'required|exists:clients,id',
         ]);
 
-        // Check overlapping bookings
+        // detect overlapping bookings
         $overlap = Booking::where('user_id', $request->user_id)
             ->where(function($query) use ($request) {
                 $query->whereBetween('start_time', [$request->start_time, $request->end_time])
@@ -38,18 +39,30 @@ class BookingController extends Controller
         return response()->json($booking, 201);
     }
 
-    // Retrieve weekly bookings
+    // get weekly bookings
     public function weekly(Request $request)
     {
-        $weekStart = $request->query('week');
+        $weekDate = $request->query('week');
 
-        if (!$weekStart) {
+        if (!$weekDate) {
             return response()->json(['error' => 'Week query parameter is required'], 422);
         }
 
-        $weekEnd = date('Y-m-d H:i:s', strtotime($weekStart . ' +6 days'));
-        $bookings = Booking::whereBetween('start_time', [$weekStart, $weekEnd])->get();
+        $startOfWeek = Carbon::parse($weekDate)->startOfWeek(Carbon::MONDAY);
+        $endOfWeek   = Carbon::parse($weekDate)->endOfWeek(Carbon::SUNDAY);
 
-        return response()->json($bookings, 200);
+        $bookings = Booking::with(['user', 'client'])
+            ->whereBetween('start_time', [$startOfWeek, $endOfWeek]);
+
+        // filter
+        if ($request->has('user_id') && $request->user_id) {
+            $bookings->where('user_id', $request->user_id);
+        }
+
+        if ($request->has('client_id') && $request->client_id) {
+            $bookings->where('client_id', $request->client_id);
+        }
+
+        return response()->json($bookings->orderBy('start_time')->get(), 200);
     }
 }
